@@ -1,0 +1,12 @@
+# secrets - never commit your API key
+.streamlit/secrets.toml
+.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# generated audio
+*.wav
