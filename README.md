@@ -21,7 +21,7 @@ Voice is available for all of these except **Malayalam** and **Odia**, which Bul
 
 ```bash
 pip install -r requirements.txt
-export SARVAM_API_KEY="your_key_here"      # Windows PowerShell: $env:SARVAM_API_KEY="your_key_here"
+Ha , Ha use your api key here 
 streamlit run app.py
 ```
 
