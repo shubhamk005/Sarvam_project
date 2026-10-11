@@ -171,30 +171,55 @@ def extract_medicines(client, filename, file_bytes, mime):
     return medicines
 
 
+FOOD_WORDS = ("food", "meal", "khana", "bhojan", "stomach")
+
+
 def medicines_to_text(medicines):
+    """Label every field so a time of day is never mistaken for a food rule."""
+    labels = (("dose", "dose"), ("frequency", "how often"), ("duration", "for how long"))
     lines = []
     for m in medicines:
-        bits = [str(m.get("name") or "").strip()]
-        for field in ("dose", "frequency", "timing", "duration"):
-            value = m.get(field)
-            if value:
-                bits.append(str(value).strip())
-        lines.append(" - ".join(b for b in bits if b))
+        name = str(m.get("name") or "").strip() or "unnamed medicine"
+        bits = [f"{label}: {str(m[f]).strip()}" for f, label in labels if m.get(f)]
+
+        # Only call something a food instruction if it really mentions food.
+        timing = str(m.get("timing") or "").strip()
+        if timing:
+            is_food = any(w in timing.lower() for w in FOOD_WORDS)
+            bits.append(
+                f"{'food instruction' if is_food else 'time of day'}: {timing}"
+            )
+        else:
+            bits.append("food instruction: NOT GIVEN, do not mention food for this one")
+
+        lines.append(f"- {name} (" + ", ".join(bits) + ")")
     return "\n".join(lines)
 
 
 def explain_medicines(client, medicines, language_label):
     """Ask sarvam-105b for one warm, short explanation covering every medicine."""
     system = (
-        "You are a warm, caring grandchild explaining medicines to your elderly "
-        "grandparent. Speak simply and kindly, the way people actually talk out loud. "
-        "For each medicine say what it is commonly used for, when to take it, and "
-        "whether it goes before or after food. "
+        "You are a warm, caring young person explaining medicines to an elderly patient "
+        "you respect. Speak simply and kindly, the way people actually talk out loud. "
+        "You do NOT know whether this person is a man or a woman, so never guess. "
+        "Address them only with respectful, gender-neutral words, using the polite form "
+        "of 'you' in the language you are writing in. Never use a gendered or family "
+        "term such as Dada ji, Dadi ji, Amma, Appa, Baba, Maa, grandfather, grandmother, "
+        "sir or madam. A simple respectful greeting is perfect. "
+        "Write your whole reply in the native script of the language you are asked to "
+        "use, never in Roman or English letters. Medicine names may stay as written. "
+        "For each medicine say what it is commonly used for and when to take it. "
         "NEVER change, question, suggest, or recalculate any dose, and never add or "
         "remove a medicine. Repeat the doses exactly as given. "
         "Do not use bullet points, numbers, headings, asterisks, or emoji, because this "
         "text will be read aloud. Keep the whole reply under 120 words. "
-        "End by gently telling them to ask their doctor if they are in any doubt."
+        "End by gently telling them to ask their doctor if they are in any doubt. "
+        "One last rule, and it is the most important one. Each medicine below is "
+        "labelled. Where you see 'food instruction', you may repeat exactly that. "
+        "Where you see 'time of day' or 'NOT GIVEN', the doctor said NOTHING about "
+        "food for that medicine, so you must say nothing about food for it either. "
+        "Never say empty stomach, before food or after food for such a medicine, not "
+        "even if you believe it is the usual advice. Say only the time of day."
     )
     user = (
         f"Write the explanation in {language_label}, in simple everyday {language_label} "
@@ -215,7 +240,7 @@ def explain_medicines(client, medicines, language_label):
                 messages=messages,
                 reasoning_effort="low",
                 max_tokens=8000,
-                temperature=0.3,
+                temperature=0.0,
             )
             reply = clean_reply(response.choices[0].message.content)
             if reply:
